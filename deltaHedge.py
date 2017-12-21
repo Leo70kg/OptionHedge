@@ -490,11 +490,11 @@ class BidAsk(object):
         askExtraSigma = self.BidAskExtraVol(S0, K)[0]
         bidExtraSigma = self.BidAskExtraVol(S0, K)[1]
     
-        askSigma = sigma + hedgeSigma + askExtraSigma
-        bidSigma = sigma - hedgeSigma + bidExtraSigma
+        self.askSigma = sigma + hedgeSigma + askExtraSigma
+        self.bidSigma = sigma - hedgeSigma + bidExtraSigma
         
-        askPrice = bsPrice(S0,K,self.r,self.T, askSigma, cp)
-        bidPrice = bsPrice(S0,K,self.r,self.T, bidSigma, cp)
+        askPrice = bsPrice(S0,K,self.r,self.T, self.askSigma, cp)
+        bidPrice = bsPrice(S0,K,self.r,self.T, self.bidSigma, cp)
         
         return askPrice, bidPrice   
 #    , bsPrice(S0,K,r,self.T, sigma, cp), hedgeSigma,\
@@ -506,7 +506,7 @@ class BidAsk(object):
         CA, CB = self.BidAskPrice(S0,K,1)
         PA, PB = self.BidAskPrice(S0,K,-1)
         
-        return [[CA,CB,PA,PB],[self.tfpervol, self.medianvol, self.sfpervol, self.todayVol]]
+        return [[CA,CB,PA,PB],[self.tfpervol, self.medianvol, self.sfpervol, self.todayVol],[self.askSigma,self.bidSigma]]
     
     def code_to_name_load(self):
         
@@ -543,11 +543,14 @@ class BidAsk(object):
         medianvollist = []
         sfpervollist = []
         todayVollist = [] 
+        
+        askVolList = []
+        bidVolList = []
 #        for i in range(len(KSratio)):
 #            K = S0 * KSratio[i]
         CA, CB, PA, PB = self.calculation(S0,K)[0]
         tfpervol, medianvol, sfpervol, todayVol = self.calculation(S0,K)[1]
-        
+        askVol, bidVol = self.calculation(S0,K)[2]
         
         name_key = re.split('\d', self.code)[0]
         name = parsedict[name_key]
@@ -567,6 +570,8 @@ class BidAsk(object):
         medianvollist.append('%.4f %%' %(medianvol*100))
         sfpervollist.append('%.4f %%' %(sfpervol*100))
         todayVollist.append('%.4f %%' %(todayVol*100))
+        askVolList.append('%.4f %%' %(askVol*100))
+        bidVolList.append('%.4f %%' %(bidVol*100))
         
         
         buylist.append('%.4f %%' %(PB/S0*100))
@@ -584,6 +589,8 @@ class BidAsk(object):
         medianvollist.append('')
         sfpervollist.append('')
         todayVollist.append('')   
+        askVolList.append('')
+        bidVolList.append('')
         
 #        quotedf[u'公司名称'] = companynamelist
         quotedf[u'报价日期'] = datelist
@@ -602,6 +609,10 @@ class BidAsk(object):
         quotedf[u'50%分位波动率'] = medianvollist
         quotedf[u'75%分位波动率'] = sfpervollist
         quotedf[u'今日波动率']    = todayVollist
+        quotedf[u'买价波动率']    = bidVolList
+        quotedf[u'卖价波动率']    = askVolList
+        
+        
         return quotedf
 
 
@@ -636,7 +647,8 @@ if __name__ == '__main__':
     df = pd.DataFrame(columns = [u'报价日期',u'品种',u'品种代码',
                                  u'期权类型',u'标的价格',u'行权价',u'到期日/交易期限',
                                  u'最小交易单位',u'买价',u'卖价',u'',u'25%分位波动率',
-                                 u'50%分位波动率',u'75%分位波动率',u'今日波动率'])    
+                                 u'50%分位波动率',u'75%分位波动率',u'今日波动率',
+                                 u'买价波动率',u'卖价波动率'])    
     for i in range(l):
         OriTickData = w.wss(code[i], "mfprice").Data[0][0]
         tick = float(re.search(r'\d+(\.\d+)?', OriTickData).group(0))
