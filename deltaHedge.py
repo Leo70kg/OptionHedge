@@ -47,7 +47,7 @@ class MCpricing(object):
     #股票实际价格模拟
         random.seed(seed=123)
         X = random.randn(M, N)
-        deltaT = T/365 / N
+        deltaT = T/252 / N
         e = np.exp((mu-0.5*sigma**2) * deltaT  + sigma * np.sqrt(deltaT) * X)
         ST = np.cumprod(np.c_[S0 * np.ones((M,1)), e], axis=1) 
     
@@ -74,7 +74,7 @@ class MCpricing(object):
         X = np.random.randn(M, N)
 
         ## Simulate M trajectories in N steps
-        deltaT = T/365 / N
+        deltaT = T/252 / N
         e = np.exp((r-0.5*sigma**2) * deltaT  + sigma * np.sqrt(deltaT) * X)
         S = np.cumprod(np.c_[S0 * np.ones((M,1)), e], axis=1)        
         
@@ -82,7 +82,7 @@ class MCpricing(object):
         payoff = payoff_function(S)
 
         ## MC estimate of the price and the error of the option
-        discountFactor = np.exp(-r*T/365)
+        discountFactor = np.exp(-r*T/252)
     
     
         price_MC = discountFactor * np.mean(payoff)
@@ -151,23 +151,23 @@ class Greeks(object):
 
 def dOne(s, k, r, t, v):
     """计算black模型中的d1"""
-    d1 = (np.log(s / k) + 0.5 * v**2  * (t/365)) / (v * np.sqrt(t/365))
+    d1 = (np.log(s / k) + 0.5 * v**2  * (t/252)) / (v * np.sqrt(t/252))
     return d1
 
 #----------------------------------------------------------------------
 def bsPrice(s, k, r, t, v, cp):
     """使用black模型计算期权的价格"""
     d1 = dOne(s, k, r, t, v)
-    d2 = d1 - v * np.sqrt(t/365)
+    d2 = d1 - v * np.sqrt(t/252)
 
-    price = cp * np.exp(-r * t/365) * (s * norm.cdf(cp * d1) - k * norm.cdf(cp * d2)) 
+    price = cp * np.exp(-r * t/252) * (s * norm.cdf(cp * d1) - k * norm.cdf(cp * d2)) 
     return price
 
 #----------------------------------------------------------------------
 def bsDelta(s, k, r, t, v, cp): 
     """使用black模型计算期权的Delta"""
     d1 = dOne(s, k, r, t, v)
-    delta = np.exp(-r * t/365) * cp * norm.cdf(cp * d1)
+    delta = np.exp(-r * t/252) * cp * norm.cdf(cp * d1)
     return delta
 
 def pdfNorm(x):
@@ -178,7 +178,7 @@ def pdfNorm(x):
 def bsVega(s, k, r, t, v):
     """使用black模型计算期权的Vega"""
     d1 = dOne(s, k, r, t, v)
-    result = s * np.sqrt(t/365) * np.exp(-r * t/365) * pdfNorm(d1)
+    result = s * np.sqrt(t/252) * np.exp(-r * t/252) * pdfNorm(d1)
     
     return result
 
@@ -281,7 +281,7 @@ def DeltaHedgeBSnoRoundDelta(S0,K,r,T,sigma,M,N,Q,C,tick, commission, slippage, 
         for j in range(N):
             if j==N-1:
                 deltaSign = np.sign(deltaArr[i,j])
-                cashAmount = cashAccountArr[i,j] * np.exp(r*1/365)\
+                cashAmount = cashAccountArr[i,j] * np.exp(r*1/252)\
                             - deltaArr[i,j] * (S[i,j+1] + deltaSign * slippage * tick)\
                             - np.abs(deltaArr[i,j]) / Q * commission\
                             + bs * np.maximum((S[i,j+1]-K)*cp,0) * Q * C
@@ -294,7 +294,7 @@ def DeltaHedgeBSnoRoundDelta(S0,K,r,T,sigma,M,N,Q,C,tick, commission, slippage, 
                 deltaChange = delta-deltaArr[i,j]
                 deltaSign = np.sign(deltaChange)
 
-                cashAmount = cashAccountArr[i,j] * np.exp(r*1/365) \
+                cashAmount = cashAccountArr[i,j] * np.exp(r*1/252) \
                             + deltaChange * (S[i,j+1] - deltaSign*slippage*tick)\
                             - np.abs(deltaChange) / Q * commission
 
@@ -341,7 +341,7 @@ def DeltaHedgeBS(S0,K,r,T,sigma,M,N,Q,C,tick, commission, slippage, cp=1, bs=-1)
 #                            - deltaArr[i,j]*S[i,j+1]*(1 + bs*slippage) - np.abs(deltaArr[i,j]) / Q * commission\
 #                            + bs * np.maximum(S[i,j+1]-K,0) * Q
                 deltaSign = np.sign(deltaArr[i,j])
-                cashAmount = cashAccountArr[i,j] * np.exp(r*1/365)\
+                cashAmount = cashAccountArr[i,j] * np.exp(r*1/252)\
                              - np.round(deltaArr[i,j])*(S[i,j+1] + deltaSign * slippage * tick)\
                              - np.abs(np.round(deltaArr[i,j])) / Q * commission\
                              + bs * np.maximum((S[i,j+1]-K)*cp,0) * Q * C
@@ -354,7 +354,7 @@ def DeltaHedgeBS(S0,K,r,T,sigma,M,N,Q,C,tick, commission, slippage, cp=1, bs=-1)
 #                            + S[i,j+1] * deltaChange * (1-deltaSign*slippage)\
 #                            - np.abs(deltaChange) / Q * commission
  
-                cashAmount = cashAccountArr[i,j] * np.exp(r*1/365) \
+                cashAmount = cashAccountArr[i,j] * np.exp(r*1/252) \
                             + np.round(deltaChange) * (S[i,j+1]-deltaSign*slippage*tick)\
                             - np.abs(np.round(deltaChange)) / Q * commission                           
                 deltaArr[i,j+1] = delta
