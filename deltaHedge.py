@@ -170,15 +170,15 @@ def bsDelta(s, k, r, t, v, cp):
     delta = np.exp(-r * t/252) * cp * norm.cdf(cp * d1)
     return delta
 
-def pdfNorm(x):
-    """正态分布概率密度函数"""
-    y = 1/np.sqrt(2*np.pi)*np.exp(-x**2/2)
-    return y 
+#def pdfNorm(x):
+#    """正态分布概率密度函数"""
+#    y = 1/np.sqrt(2*np.pi)*np.exp(-x**2/2)
+#    return y 
 
 def bsVega(s, k, r, t, v):
     """使用black模型计算期权的Vega"""
     d1 = dOne(s, k, r, t, v)
-    result = s * np.sqrt(t/252) * np.exp(-r * t/252) * pdfNorm(d1)
+    result = s * np.sqrt(t/252) * np.exp(-r * t/252) * norm.pdf(d1)
     
     return result
 
@@ -481,17 +481,17 @@ class BidAsk(object):
 #                self.BidAskExtraVol()[0],sigma,self.volstd, self.todayVol
 
 
-    def BidAskPrice(self,S0, K,cp):   
+    def BidAskPrice(self,S0, K, cp):   
 #        S0 = w.wsq(self.code, "rt_last", func=DemoWSQCallback)
         sigma = self.todayVol
     
-#        hedgeSigma = 40 * self.tick/S0 + 0.035 * sigma - 0.007
-        hedgeSigma = 45 * self.tick/S0
-        askExtraSigma = self.BidAskExtraVol(S0, K)[0]
-        bidExtraSigma = self.BidAskExtraVol(S0, K)[1]
+#        hedgeSigma = 45 * self.tick/S0
+        self.hedgeSigma = 53 * self.tick / S0 + 0.015
+        self.askExtraSigma = self.BidAskExtraVol(S0, K)[0]
+        self.bidExtraSigma = self.BidAskExtraVol(S0, K)[1]
     
-        self.askSigma = sigma + hedgeSigma + askExtraSigma
-        self.bidSigma = sigma - hedgeSigma + bidExtraSigma
+        self.askSigma = sigma + self.hedgeSigma + self.askExtraSigma
+        self.bidSigma = sigma - self.hedgeSigma + self.bidExtraSigma
         
         askPrice = bsPrice(S0,K,self.r,self.T, self.askSigma, cp)
         bidPrice = bsPrice(S0,K,self.r,self.T, self.bidSigma, cp)
@@ -506,11 +506,13 @@ class BidAsk(object):
         CA, CB = self.BidAskPrice(S0,K,1)
         PA, PB = self.BidAskPrice(S0,K,-1)
         
-        return [[CA,CB,PA,PB],[self.tfpervol, self.medianvol, self.sfpervol, self.todayVol],[self.askSigma,self.bidSigma]]
+        return [[CA,CB,PA,PB],[self.tfpervol, self.medianvol, self.sfpervol,\
+                self.todayVol],[self.askSigma,self.bidSigma,self.hedgeSigma,
+                                 self.askExtraSigma, self.bidExtraSigma]]
     
     def code_to_name_load(self):
         
-        f = open('CodeName.json')
+        f = open('CodeParseName.json')
         d = json.load(f)
        
         return d
@@ -546,11 +548,15 @@ class BidAsk(object):
         
         askVolList = []
         bidVolList = []
+        hedgeVolList = []
+        askExtraVolList = []
+        bidExtraVolList = []
+        
 #        for i in range(len(KSratio)):
 #            K = S0 * KSratio[i]
         CA, CB, PA, PB = self.calculation(S0,K)[0]
         tfpervol, medianvol, sfpervol, todayVol = self.calculation(S0,K)[1]
-        askVol, bidVol = self.calculation(S0,K)[2]
+        askVol, bidVol, hedgeVol, askExtraVol, bidExtraVol = self.calculation(S0,K)[2]
         
         name_key = re.split('\d', self.code)[0]
         name = parsedict[name_key]
@@ -572,7 +578,9 @@ class BidAsk(object):
         todayVollist.append('%.4f %%' %(todayVol*100))
         askVolList.append('%.4f %%' %(askVol*100))
         bidVolList.append('%.4f %%' %(bidVol*100))
-        
+        hedgeVolList.append('%.4f %%' %(hedgeVol*100))
+        askExtraVolList.append('%.4f %%' %(askExtraVol*100))
+        bidExtraVolList.append('%.4f %%' %(bidExtraVol*100))
         
         buylist.append('%.4f %%' %(PB/S0*100))
         datelist.append('')
@@ -591,6 +599,10 @@ class BidAsk(object):
         todayVollist.append('')   
         askVolList.append('')
         bidVolList.append('')
+        hedgeVolList.append('')
+        askExtraVolList.append('')
+        bidExtraVolList.append('')
+        
         
 #        quotedf[u'公司名称'] = companynamelist
         quotedf[u'报价日期'] = datelist
@@ -611,14 +623,16 @@ class BidAsk(object):
         quotedf[u'今日波动率']    = todayVollist
         quotedf[u'买价波动率']    = bidVolList
         quotedf[u'卖价波动率']    = askVolList
-        
+        quotedf[u'对冲成本波动率'] = hedgeVolList
+        quotedf[u'设定卖价溢出波动率'] = askExtraVolList
+        quotedf[u'设定买价溢出波动率'] = bidExtraVolList
         
         return quotedf
 
 
         
     def quote_to_excel(self, bookname, df):
-        filepath = 'D:\\work\\Quote\\'
+        filepath = 'D:\\simulation\\Quote\\'
         savename = bookname + '(' + self.EndDay.strftime('%Y-%m-%d') +  ')' + '.xlsx'
         filename = filepath + savename
         wb = xw.Book()
@@ -636,8 +650,11 @@ if __name__ == '__main__':
             'RB1805.SHF','I1805.DCE','J1805.DCE','a1805.DCE',
             'c1805.DCE','M1805.DCE','p1805.DCE','RM805.CZC',
             'OI805.CZC','SR805.CZC','CF805.CZC','TA805.CZC',
-            'JD1805.DCE','l1805.DCE','pp1805.DCE', 'ZC805.CZC', 'AU1806.SHF'] 
-    r  = 0.0375
+            'JD1805.DCE','l1805.DCE','pp1805.DCE', 'ZC805.CZC', 
+            'AU1806.SHF','RU1805.SHF','AG1806.SHF','Y1805.DCE',
+            'TF1806.CFE','T1806.CFE','IH1801.CFE','IC1801.CFE',
+            'IF1801.CFE'] 
+    r  = 0.038
     l = len(code)
     
 #    df = pd.DataFrame(columns = [u'公司名称',u'品种',u'品种代码',
@@ -648,18 +665,22 @@ if __name__ == '__main__':
                                  u'期权类型',u'标的价格',u'行权价',u'到期日/交易期限',
                                  u'最小交易单位',u'买价',u'卖价',u'',u'25%分位波动率',
                                  u'50%分位波动率',u'75%分位波动率',u'今日波动率',
-                                 u'买价波动率',u'卖价波动率'])    
+                                 u'买价波动率',u'卖价波动率',u'对冲成本波动率',
+                                 u'设定卖价溢出波动率',u'设定买价溢出波动率'])
+    
+    T = w.tdayscount(datetime.date.today(),datetime.date.today()+relativedelta(months=1), "").Data[0][0]
     for i in range(l):
         OriTickData = w.wss(code[i], "mfprice").Data[0][0]
         tick = float(re.search(r'\d+(\.\d+)?', OriTickData).group(0))
-        T    = w.tdayscount(datetime.date.today(),datetime.date.today()+relativedelta(months=1), "").Data[0][0]
+
         S0 = w.wsq(code[i], "rt_last").Data[0][0]
         K = S0
         
         a = BidAsk(code[i],tick,T,r)
-        b = a.BidAskPrice(S0,K,1)
+
         df1 = a.QuoteOneSpecies(S0, K)
         df = df.append(df1)
+        print (code[i])
         
 #    bookname = u'场外期权报价-渤海融盛'
     bookname = u'场外期权报价'

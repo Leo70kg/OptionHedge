@@ -50,7 +50,14 @@ def RevisedLogRet(code,BeginDay,EndDay):
         RevisedLogReturn.loc[RevData.index[i]] = logReturn
     return RevisedLogReturn
             
-
+def volitility(code,T,numOfYearBefore):
+    EndDay = datetime.date.today()
+    BeginDay = EndDay - relativedelta(years=numOfYearBefore)
+    LogRet = RevisedLogRet(code,BeginDay,EndDay)
+    days = w.tdayscount(EndDay-relativedelta(months=T),EndDay, "").Data[0][0]
+    vol = (LogRet.rolling(window=days,center=False).std() * np.sqrt(252)).dropna().iloc[-1][0]
+    
+    return vol
     
 if __name__ == '__main__':
     w.start()
